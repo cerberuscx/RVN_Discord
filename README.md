@@ -49,14 +49,11 @@ Fields that are unavailable from a fallback source display as `N/A`.
 ```
 pip install -r requirements.txt
 ```
-3. Create a `.env` file in the root directory and add the following:
+3. Copy the example env file and fill in your values:
 ```
-TOKEN=your_discord_bot_token_here
-GUILD_ID=your_guild_id_here
-CHANNEL_ID=your_channel_id_here
-EMBED_ID=your_embed_channel_id_here
+cp .env.example .env
 ```
-(Fill in the appropriate values for your Discord server)
+Then edit `.env` with your Discord bot token, guild ID, and channel IDs.
 
 4. Run the bot:
 ```
