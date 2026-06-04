@@ -17,9 +17,30 @@ Before making changes, check the docs index below for current priorities, known 
 
 ## Features
 
-- Displays current Ravencoin price and statistics in an embedded message
-- Updates a channel name with the current RVN price
-- Responds to price inquiries with the current RVN price
+### Auto-Updating Price Embed
+A live embed in the configured channel auto-updates every 30 minutes with:
+- Current RVN price, 24h/7d/30d change percentages
+- 24h volume, market cap, circulating supply
+- All-time high with change % and date
+- Block time
+- 30-day price chart (when CoinGecko is the active source)
+- Data source attribution
+
+The embed survives bot restarts — its message ID is persisted to `embed_state.json`.
+
+### Status Activity Ticker
+The bot's Discord "Watching" status displays the current RVN price (e.g. "Watching RVN: $0.04250 USD"), updating every cycle.
+
+### Data Sources (3-Tier Fallback Chain)
+The bot tries sources in order until one succeeds:
+
+| Priority | Source | Data | Key Required |
+|----------|--------|------|-------------|
+| 1° | **CoinGecko** | Full stats + 30d price chart | No |
+| 2° | **CoinMarketCap** (keyless API) | Price, market cap, volume, supply, 24h/7d/30d change | No |
+| 3° | **Binance** (public ticker) | Price, 24h change, volume only | No |
+
+Fields that are unavailable from a fallback source display as `N/A`.
 
 ## Setup
 
@@ -46,7 +67,7 @@ For production on VPS, prefer a systemd service instead of running directly in a
 
 ## Commands
 
-- `!price`: Responds with the current RVN price
+- `!price`: Responds with the current RVN price (fetched from CoinGecko simple price endpoint)
 
 ## Contributing
 
