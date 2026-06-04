@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import signal
-import sys
 import httpx
 import config
 from discord.ext import commands
@@ -10,57 +9,99 @@ import price_commands
 
 # Logging Setup
 logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[
+                        logging.FileHandler("bot.log"),
+                        logging.StreamHandler()
+                    ])
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Bot Initialization
-bot = commands.Bot(command_prefix="!", intents=config.intents)
+class RavencoinBot(commands.Bot):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.client = None
+        self.bg_task = None
 
-# Global httpx client
-client = None
+    async def on_ready(self):
+        try:
+            if self.client is None:
+                self.client = httpx.AsyncClient()
 
-@bot.event
-async def on_ready():
-    global client
-    client = httpx.AsyncClient()
-    await basic_events.on_ready(bot)
+            user = self.user
+            if user is None:
+                logger.warning("on_ready fired but bot user is not available yet")
+                return
 
-@bot.event
-async def on_disconnect():
-    await basic_events.on_disconnect()
+            logger.info(f'We have logged in as {user}')
+            logger.info(f'{user.name} is online!')
+            logger.info(f'Bot ID: {user.id}')
+            logger.info('----------------------------')
+
+            if self.bg_task is None or self.bg_task.done():
+                self.bg_task = self.loop.create_task(basic_events.update_statistics(self))
+            else:
+                logger.info("Background statistics task already running")
+        except Exception as e:
+            logger.error(f"Error in on_ready: {e}", exc_info=True)
+
+    async def on_disconnect(self):
+        logger.warning("The bot has been disconnected")
+    
+    async def on_resumed(self):
+        logger.info("Bot has resumed connection")
+        if self.bg_task and self.bg_task.done():
+            self.bg_task = self.loop.create_task(basic_events.update_statistics(self))
+
+    async def close(self):
+        if self.client:
+            await self.client.aclose()
+            self.client = None
+            logger.info("httpx client closed.")
+        if self.bg_task:
+            self.bg_task.cancel()
+            try:
+                await self.bg_task
+            except asyncio.CancelledError:
+                pass
+        await super().close()
+
+bot = RavencoinBot(command_prefix="!", intents=config.intents)
 
 @bot.command()
 async def price(ctx):
-    await price_commands.handle_price(ctx, client)
+    if bot.client is None:
+        await ctx.send("Bot client is still initializing. Please try again in a few seconds.")
+        return
+    await price_commands.handle_price(ctx, bot.client)
 
-async def on_shutdown():
-    global client
-    if client:
-        await client.aclose()
-        client = None
-        logger.info("httpx client closed.")
-    
-    logger.info("Shutting down bot...")
-    await bot.close()
-    logger.info("Bot has been shut down.")
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.send("Command not found. Type !help for a list of available commands.")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"Missing required argument: {error.param}")
+    else:
+        logger.error(f"An error occurred: {error}", exc_info=True)
+        await ctx.send("An error occurred while processing the command.")
 
 def signal_handler(signum, frame):
     logger.info(f"Received shutdown signal: {signum}")
-    sys.exit(0)
+    asyncio.get_event_loop().stop()
 
 def main():
-    # Register the signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     try:
-        bot.run(config.TOKEN)
-    except SystemExit:
-        logger.info("SystemExit received. Starting graceful shutdown.")
+        token = config.TOKEN
+        if not token:
+            raise RuntimeError("TOKEN is not set in environment")
+        bot.run(token)
     except Exception as e:
         logger.error("An unexpected error occurred", exc_info=True)
     finally:
-        asyncio.run(on_shutdown())
         logger.info("Shutdown complete.")
 
 if __name__ == "__main__":

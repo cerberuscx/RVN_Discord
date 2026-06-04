@@ -2,6 +2,19 @@
 
 This is the official Discord bot for the Ravencoin community. It provides real-time updates on RVN metrics, including price, market cap, volume, and circulating supply.
 
+## Development Entry Point
+
+Use this file as the entry point for development work and fresh LLM conversations.
+Before making changes, check the docs index below for current priorities, known issues, and operational notes.
+
+## Docs Index
+
+- `docs/TOP_PRIORITIES.md`: active reliability and operations priorities
+- `docs/ISSUES.md`: tracked issues and status
+- `docs/CHANGELOG.md`: project change history
+- `docs/RUNBOOK.md`: deploy, restart, verify, and recovery steps
+- `docs/SERVICE_SETUP.md`: systemd service setup for production runtime
+
 ## Features
 
 - Displays current Ravencoin price and statistics in an embedded message
@@ -28,6 +41,9 @@ EMBED_ID=your_embed_channel_id_here
 ```
 python main.py
 ```
+
+For production on VPS, prefer a systemd service instead of running directly in a terminal.
+
 ## Commands
 
 - `!price`: Responds with the current RVN price
